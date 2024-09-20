@@ -27,18 +27,52 @@ func main() {
     
     ClearScreen()
 
+    regularmode := true
+
+    entershortcut := "Enter Shortcut: ("
+    regmode := "\033[32mreg_mode\033[0m"
+    execmode := "exc_mode"
+    closebracket := ")"
+
+    menustring := entershortcut + regmode + " | " + execmode + closebracket + "\n"
+
+    query := ""
     for {
-        fmt.Print("Enter Shortcut: ")
+        fmt.Print(menustring)
         shortcut, err := reader.ReadString('\n')
-        ClearScreen()
         if err != nil {
             log.Println("Error reading input:", err)
             continue
         } 
-        shortcut = strings.TrimSpace(shortcut) // Trim whitespace and newlines
 
-        // Prepare the query
-        query := "SELECT category, shortcut, extension FROM windowsshortcuts WHERE category LIKE ? OR shortcut LIKE ? OR extension LIKE ?;"
+        shortcut = strings.TrimSpace(shortcut) // Trim whitespace and newlines
+        if shortcut == "reg_mode" {
+            entershortcut = "Enter Shortcut: ("
+            regmode = "\033[32mreg_mode\033[0m"
+            execmode = "exc_mode"
+            closebracket = ")"
+            menustring = entershortcut + regmode + " | " + execmode + closebracket + "\n"
+            regularmode = true
+            continue
+        } else if shortcut == "exc_mode" {
+            entershortcut = "Enter Shortcut: ("
+            regmode = "reg_mode"
+            execmode = "\033[32mexc_mode\033[0m"
+            closebracket = ")"
+            menustring = entershortcut + regmode + " | " + execmode + closebracket + "\n"
+            regularmode = false
+            continue
+        } else if shortcut == "clear" {
+            ClearScreen()
+            continue
+        }
+
+        if regularmode {
+            query = "SELECT category, shortcut, extension FROM windowsshortcuts WHERE category LIKE ? OR shortcut LIKE ? OR extension LIKE ?;"
+        } else {
+            query = "SELECT category, shortcut, extension FROM excelshortcuts WHERE category LIKE ? OR shortcut LIKE ? OR extension LIKE ?;"
+        }
+
         rows, err := db.Query(query, "%"+shortcut+"%", "%"+shortcut+"%", "%"+shortcut+"%")
         if err != nil {
             log.Fatal(err)
