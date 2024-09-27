@@ -1,9 +1,10 @@
 DROP TABLE IF EXISTS windowsshortcuts;
 
 CREATE TABLE windowsshortcuts(
-category VARCHAR(30),
-shortcut VARCHAR(35),
-extension VARCHAR(85)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category VARCHAR(30),
+    shortcut VARCHAR(35),
+    extension VARCHAR(85)
 );
 
 INSERT INTO windowsshortcuts(category,shortcut,extension)
