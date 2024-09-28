@@ -12,16 +12,67 @@ import (
 )
 
 const (
-    regmodebit uint8 = 1 << iota
-    execmodebit
-    wordmodebit
-    powerpointmodebit
-    powershellmodebit
+    windowsshortcutsbit uint8 = 1 << iota
+    excelshortcutsbit
+    wordshortcutsbit
+    powerpointshortcutsbit
+    powershellshortcutsbit
 )
+
+var options = map[string] uint8 {
+    "windowsshortcuts" : windowsshortcutsbit,
+    "excelshortcuts" : excelshortcutsbit,
+    "wordshortcuts" : wordshortcutsbit,
+    "powerpointshortcuts" : powerpointshortcutsbit,
+    "powershellshortcuts" : powershellshortcutsbit,
+}
+
 
 func ClearScreen() {
     print("\033[H\033[2J")
 }
+
+func MainQuery(currenttable string, db *sql.DB, shortcut string) error {
+    query := "SELECT category, shortcut, extension FROM " + currenttable + " WHERE category LIKE ? OR shortcut LIKE ? OR extension LIKE ?;"
+
+    rows, err := db.Query(query, "%"+shortcut+"%", "%"+shortcut+"%", "%"+shortcut+"%")
+    if err != nil {
+        log.Fatal(err)
+    } else {
+        fmt.Println("No Results Found")
+    }
+    defer rows.Close() // Ensure rows are closed after use
+
+    // Check if any rows were returned
+    found := false
+    for rows.Next() {
+        var category, shortcutResult, extension string
+        if err := rows.Scan(&category, &shortcutResult, &extension); err != nil {
+            log.Fatal(err)
+        }
+
+        category = strings.ToLower(category)
+        extension = strings.ToLower(extension)
+        shortcutResult = strings.ToLower(shortcutResult)
+        
+        coloredshortcut := "\033[102m" + shortcut + "\033[0m"
+        extension = strings.ReplaceAll(extension, shortcut, coloredshortcut)
+        category = strings.ReplaceAll(category, shortcut, coloredshortcut)
+        
+        shortcutResult = "\033[33m" + shortcutResult + "\033[0m"
+
+        fmt.Println(shortcutResult, " -> ", category, ":", extension)
+        found = true
+    }
+
+    if !found {
+        fmt.Println("No results found for:", shortcut)
+    }
+
+    return nil
+}
+
+
 
 func main() {
     // Open a connection to the database
@@ -32,23 +83,22 @@ func main() {
     defer db.Close()
 
     reader := bufio.NewReader(os.Stdin)
-    
 
-    controlbit := regmodebit 
+    controlbit := windowsshortcutsbit 
 
     entershortcut := "Enter Shortcut: ("
-    regmode := "\033[32mreg_mode\033[0m"
-    execmode := "exc_mode"
-    wordmode := "word_mode"
-    powerpointmode := "powerpoint_mode"
-    powershellmode := "powershell_mode"
+    windowsshortcuts := "\033[32mwindowsshortcuts\033[0m"
+    excelshortcuts := "excelshortcuts"
+    wordshortcuts := "wordshortcuts"
+    powerpointshortcuts := "powerpointshortcuts"
+    powershellshortcuts := "powershellshortcuts"
     closebracket := ")"
 
-    menustring := entershortcut + regmode + " | " + execmode + " | " + wordmode + " | " + powerpointmode + " | " + powershellmode + closebracket + "\n"
+    menustring := entershortcut + windowsshortcuts + " | " + excelshortcuts + " | " + wordshortcuts + " | " + powerpointshortcuts + " | " + powershellshortcuts + closebracket + "clear" + "\n"
 
-    query := ""
+    currenttable := "windowsshortcuts"
+
     for {
-        currentselecttable := ""
         fmt.Print(menustring)
         shortcut, err := reader.ReadString('\n')
         if err != nil {
@@ -56,93 +106,47 @@ func main() {
             continue
         } 
 
-        options := map[string] uint8 {
-            "reg_mode" : regmodebit,
-            "exc_mode" : execmodebit,
-            "word_mode" : wordmodebit,
-            "powerpoint_mode" : powerpointmodebit,
-            "powershell_mode" : powershellmodebit,
-        }
-
         shortcut = strings.TrimSpace(shortcut) // Trim whitespace and newlines
         
-
         entershortcut = "Enter Shortcut: ("
         closebracket = ")"
 
         if options[shortcut] != 0 {
             controlbit = options[shortcut]
+            windowsshortcuts = "windowsshortcuts"
+            excelshortcuts = "excelshortcuts"
+            wordshortcuts = "wordshortcuts"
+            powerpointshortcuts = "powerpointshortcuts"
+            powershellshortcuts = "powershellshortcuts"
+
+            if controlbit == windowsshortcutsbit {
+                windowsshortcuts = "\033[32mwindowsshortcuts\033[0m"
+            } else if controlbit == excelshortcutsbit {
+                excelshortcuts = "\033[32mexcelshortcuts\033[0m"
+            } else if controlbit == wordshortcutsbit {
+                wordshortcuts = "\033[32mwordshortcuts\033[0m"
+            } else if controlbit == powerpointshortcutsbit {
+                powerpointshortcuts = "\033[32mpowerpointshortcuts\033[0m"
+            } else if controlbit == powershellshortcutsbit {
+                powershellshortcuts = "\033[32mpowershellshortcuts\033[0m"
+            }
+
+            menustring = entershortcut + windowsshortcuts + " | " + excelshortcuts + " | " + wordshortcuts + " | " + powerpointshortcuts + " | " + powershellshortcuts + closebracket + "clear" + "\n"
+
+            currenttable = shortcut
+            continue
         }
 
-        regmode = "reg_mode"
-        execmode = "exc_mode"
-        wordmode = "word_mode"
-        powerpointmode = "powerpoint_mode"
-        powershellmode = "powershell_mode"
-
-        if controlbit == regmodebit {
-            regmode = "\033[32mreg_mode\033[0m"
-        } else if controlbit == execmodebit {
-            execmode = "\033[32mexc_mode\033[0m"
-        } else if controlbit == wordmodebit {
-            wordmode = "\033[32mword_mode\033[0m"
-        } else if controlbit == powerpointmodebit {
-            powerpointmode = "\033[32mpowerpoint_mode\033[0m"
-        } else if controlbit == powershellmodebit {
-            powershellmode = "\033[32mpowershell_mode\033[0m"
-        }
+        
         if shortcut == "clear" {
             ClearScreen()
             continue
         }
+        
+        fmt.Println("currenttable: ", currenttable)
+        MainQuery(currenttable, db, shortcut)
 
-        menustring = entershortcut + regmode + " | " + execmode + " | " + wordmode + " | " + powerpointmode + " | " + powershellmode + closebracket + "\n"
-
-        if controlbit == regmodebit {
-            currentselecttable = "windowsshortcuts"
-        } else if controlbit == execmodebit {
-            currentselecttable = "excelshortcuts"
-        } else if controlbit == wordmodebit {
-            currentselecttable = "wordshortcuts"
-        } else if controlbit == powerpointmodebit {
-            currentselecttable = "powerpointshortcuts"
-        } else if controlbit == powershellmodebit {
-            currentselecttable = "powershellshortcuts"
-        }
-
-        query = "SELECT category, shortcut, extension FROM " + currentselecttable + " WHERE category LIKE ? OR shortcut LIKE ? OR extension LIKE ?;"
-
-        rows, err := db.Query(query, "%"+shortcut+"%", "%"+shortcut+"%", "%"+shortcut+"%")
-        if err != nil {
-            log.Fatal(err)
-        }
-        defer rows.Close() // Ensure rows are closed after use
-
-        // Check if any rows were returned
-        found := false
-        for rows.Next() {
-            var category, shortcutResult, extension string
-            if err := rows.Scan(&category, &shortcutResult, &extension); err != nil {
-                log.Fatal(err)
-            }
-
-            category = strings.ToLower(category)
-            extension = strings.ToLower(extension)
-            shortcutResult = strings.ToLower(shortcutResult)
-            
-            coloredshortcut := "\033[102m" + shortcut + "\033[0m"
-            extension = strings.ReplaceAll(extension, shortcut, coloredshortcut)
-            category = strings.ReplaceAll(category, shortcut, coloredshortcut)
-            
-            shortcutResult = "\033[33m" + shortcutResult + "\033[0m"
-
-            fmt.Println(shortcutResult, " -> ", category, ":", extension)
-            found = true
-        }
-
-        if !found {
-            fmt.Println("No results found for:", shortcut)
-        }
+		
     }
 }
 
