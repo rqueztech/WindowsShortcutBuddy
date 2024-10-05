@@ -1,14 +1,7 @@
 package utils
 
-import (
-    "fmt"
-)
-
-type Utils struct {
-    PaintedMenu string   
+func ClearScreen() {
+    print("\033[H\033[2J")
 }
 
-func (*utils Utils) PaintMenu() {
-    fmt.Println("Imported Utils")
-}
 
